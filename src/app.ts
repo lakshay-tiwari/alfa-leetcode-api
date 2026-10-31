@@ -2,14 +2,29 @@ import apicache from 'apicache';
 import cors from 'cors';
 import express, { type NextFunction, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 import config from './config';
 import * as leetcode from './leetCode';
 import { setupSwagger } from './swagger';
 import type { FetchUserDataRequest } from './types';
 
 const app = express();
-app.set('trust proxy', config.trustProxy);
+app.disable('x-powered-by');
+
+if (config.trustProxy !== false) {
+  app.set('trust proxy', config.trustProxy);
+}
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+
 const cache = apicache.middleware;
+const onlyStatus200 = (_req: express.Request, res: Response) =>
+  res.statusCode === 200;
 
 const limiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -19,12 +34,20 @@ const limiter = rateLimit({
   message: 'Too many request from this IP, try again in 1 hour',
 });
 
-app.use(cache('5 minutes'));
 app.use(cors()); //enable all CORS request
 app.use(limiter); //limit to all API
+app.use(cache('5 minutes', onlyStatus200)); // only cache 200 responses
 app.use((req: express.Request, _res: Response, next: NextFunction) => {
-  console.log('Requested URL:', req.originalUrl);
+  console.log('Requested URL:', req.originalUrl.replace(/[\r\n]/g, ''));
   next();
+});
+
+// Explicit handlers for common assets
+app.get('/favicon.ico', (_req, res) => {
+  res.status(204).end();
+});
+app.get('/robots.txt', (_req, res) => {
+  res.status(404).end();
 });
 
 // Swagger UI must be mounted before /:username wildcard routes
@@ -129,14 +152,50 @@ app.get('/problems', leetcode.problems);
 app.get('/contests', leetcode.allContests);
 app.get('/contests/upcoming', leetcode.upcomingContests);
 
+/* ----- Migrated to new routes -> placed before /:username wildcard routes ----- */
+
+app.get('/userProfile/:id', leetcode.userProfile_);
+app.get('/dailyQuestion', leetcode.dailyQuestion_);
+app.get('/selectQuestion', leetcode.selectProblemRaw);
+app.get('/skillStats/:username', leetcode.skillStats_);
+app.get(
+  '/userProfileUserQuestionProgressV2/:userSlug',
+  leetcode.userProfileUserQuestionProgressV2_,
+);
+app.get('/languageStats', leetcode.languageStats_);
+app.get('/userContestRankingInfo/:username', leetcode.userContestRankingInfo_);
+
 // Construct options object on all user routes.
 app.use(
   '/:username*',
-  (req: FetchUserDataRequest, _res: Response, next: NextFunction) => {
+  (req: FetchUserDataRequest, res: Response, next: NextFunction): void => {
+    const username = req.params.username;
+    // Reject paths with scanner file extensions or hidden dot files
+    if (
+      !username ||
+      username.startsWith('.') ||
+      /\.(php|env|git|asp|jsp|xml|txt|ico|png|jpg|yml|yaml|config|json)$/i.test(
+        username,
+      )
+    ) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const rawLimit = req.query.limit;
+    const parsedLimit = rawLimit ? parseInt(rawLimit as string, 10) : 20;
+    const limit =
+      Number.isNaN(parsedLimit) || parsedLimit <= 0
+        ? 20
+        : Math.min(parsedLimit, 100);
+
+    const rawYear = req.query.year;
+    const parsedYear = rawYear ? parseInt(rawYear as string, 10) : 0;
+    const year = Number.isNaN(parsedYear) || parsedYear < 0 ? 0 : parsedYear;
+
     req.body = {
-      username: req.params.username,
-      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 20,
-      year: req.query.year ? parseInt(req.query.year as string, 10) : 0,
+      username,
+      limit,
+      year,
     };
     next();
   },
@@ -177,18 +236,5 @@ app.get('/:username/language', leetcode.languageStats);
 
 //get user progress
 app.get('/:username/progress/', leetcode.progress);
-
-/* ----- Migrated to new routes -> these will be deleted ----- */
-
-app.get('/userProfile/:id', leetcode.userProfile_);
-app.get('/dailyQuestion', leetcode.dailyQuestion_);
-app.get('/selectQuestion', leetcode.selectProblemRaw);
-app.get('/skillStats/:username', leetcode.skillStats_);
-app.get(
-  '/userProfileUserQuestionProgressV2/:userSlug',
-  leetcode.userProfileUserQuestionProgressV2_,
-);
-app.get('/languageStats', leetcode.languageStats_);
-app.get('/userContestRankingInfo/:username', leetcode.userContestRankingInfo_);
 
 export default app;

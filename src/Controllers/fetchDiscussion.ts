@@ -8,7 +8,7 @@ const fetchDiscussion = async (
   query: string,
 ) => {
   try {
-    const response = await fetch('https://leetcode.com/graphql', {
+    const fetchOptions: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -20,18 +20,24 @@ const fetchDiscussion = async (
           first: options.first || 20, //by default get 20 question
         },
       }),
-    });
+    };
+
+    if (process.env.NODE_ENV !== 'test') {
+      fetchOptions.signal = AbortSignal.timeout(10000);
+    }
+
+    const response = await fetch('https://leetcode.com/graphql', fetchOptions);
 
     const result = await response.json();
 
     if (result.errors) {
-      return res.send(result);
+      return (res.status ? res.status(400) : res).send(result);
     }
 
     return res.json(formatData(result.data));
   } catch (err) {
     console.error('Error: ', err);
-    return res.send(err);
+    return (res.status ? res.status(500) : res).send(err);
   }
 };
 

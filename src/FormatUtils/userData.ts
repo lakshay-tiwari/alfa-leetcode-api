@@ -33,33 +33,33 @@ export const formatContestData = (data: UserContest) => ({
   totalParticipants: data.userContestRanking?.totalParticipants,
   contestTopPercentage: data.userContestRanking?.topPercentage,
   contestBadges: data.userContestRanking?.badge,
-  contestParticipation: data.userContestRankingHistory.filter(
+  contestParticipation: (data.userContestRankingHistory || []).filter(
     (obj) => obj.attended === true,
   ),
 });
 
 export const formatContestHistoryData = (data: UserData) => ({
-  count: data.userContestRankingHistory.length,
-  contestHistory: data.userContestRankingHistory,
+  count: (data.userContestRankingHistory || []).length,
+  contestHistory: data.userContestRankingHistory || [],
 });
 
 export const formatSolvedProblemsData = (data: UserData) => ({
-  solvedProblem: data.matchedUser.submitStats.acSubmissionNum[0].count,
-  easySolved: data.matchedUser.submitStats.acSubmissionNum[1].count,
-  mediumSolved: data.matchedUser.submitStats.acSubmissionNum[2].count,
-  hardSolved: data.matchedUser.submitStats.acSubmissionNum[3].count,
+  solvedProblem: data.matchedUser.submitStats.acSubmissionNum[0]?.count ?? 0,
+  easySolved: data.matchedUser.submitStats.acSubmissionNum[1]?.count ?? 0,
+  mediumSolved: data.matchedUser.submitStats.acSubmissionNum[2]?.count ?? 0,
+  hardSolved: data.matchedUser.submitStats.acSubmissionNum[3]?.count ?? 0,
   totalSubmissionNum: data.matchedUser.submitStats.totalSubmissionNum,
   acSubmissionNum: data.matchedUser.submitStats.acSubmissionNum,
 });
 
 export const formatSubmissionData = (data: UserData) => ({
-  count: data.recentSubmissionList.length,
-  submission: data.recentSubmissionList,
+  count: (data.recentSubmissionList || []).length,
+  submission: data.recentSubmissionList || [],
 });
 
 export const formatAcSubmissionData = (data: UserData) => ({
-  count: data.recentAcSubmissionList.length,
-  submission: data.recentAcSubmissionList,
+  count: (data.recentAcSubmissionList || []).length,
+  submission: data.recentAcSubmissionList || [],
 });
 
 export const formatSubmissionCalendarData = (data: UserData) => ({

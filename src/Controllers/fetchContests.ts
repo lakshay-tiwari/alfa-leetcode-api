@@ -3,7 +3,7 @@ import type { Contest } from '../types';
 
 export const fetchAllContests = async (res: Response, query: string) => {
   try {
-    const response = await fetch('https://leetcode.com/graphql', {
+    const fetchOptions: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -12,26 +12,32 @@ export const fetchAllContests = async (res: Response, query: string) => {
       body: JSON.stringify({
         query: query,
       }),
-    });
+    };
+
+    if (process.env.NODE_ENV !== 'test') {
+      fetchOptions.signal = AbortSignal.timeout(10000);
+    }
+
+    const response = await fetch('https://leetcode.com/graphql', fetchOptions);
 
     const result = await response.json();
     if (!response.ok) {
       console.error(`HTTP error! status: ${response.status}`);
     }
     if (result.errors) {
-      return res.send(result);
+      return (res.status ? res.status(400) : res).send(result);
     }
 
     return res.json(result.data);
   } catch (err) {
     console.error('Error: ', err);
-    return res.send(err);
+    return (res.status ? res.status(500) : res).send(err);
   }
 };
 
 export const fetchUpcomingContests = async (res: Response, query: string) => {
   try {
-    const response = await fetch('https://leetcode.com/graphql', {
+    const fetchOptions: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,18 +46,24 @@ export const fetchUpcomingContests = async (res: Response, query: string) => {
       body: JSON.stringify({
         query: query,
       }),
-    });
+    };
+
+    if (process.env.NODE_ENV !== 'test') {
+      fetchOptions.signal = AbortSignal.timeout(10000);
+    }
+
+    const response = await fetch('https://leetcode.com/graphql', fetchOptions);
 
     const result = await response.json();
     if (!response.ok) {
       console.error(`HTTP error! status: ${response.status}`);
     }
     if (result.errors) {
-      return res.send(result);
+      return (res.status ? res.status(400) : res).send(result);
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const allContests = result.data.allContests || [];
+    const allContests = result.data?.allContests || [];
 
     const upcomingContests = allContests.filter(
       (contest: Contest) => contest.startTime > now,
@@ -63,6 +75,6 @@ export const fetchUpcomingContests = async (res: Response, query: string) => {
     });
   } catch (err) {
     console.error('Error: ', err);
-    return res.send(err);
+    return (res.status ? res.status(500) : res).send(err);
   }
 };

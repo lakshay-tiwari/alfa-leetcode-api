@@ -19,10 +19,13 @@ const fetchProblems = async (
         ? 1
         : options.limit || 20;
     const skip = options.skip || 0; // Default to 0 if not provided
-    const tags = options.tags ? options.tags.split(' ') : []; // Split tags or default to empty array
+    const tags =
+      typeof options.tags === 'string' && options.tags.trim() !== ''
+        ? options.tags.split(' ')
+        : []; // Split tags or default to empty array
     const difficulty = options.difficulty || undefined; // difficulty has to be 'EASY', 'MEDIUM' or 'HARD'
 
-    const response = await fetch('https://leetcode.com/graphql', {
+    const fetchOptions: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +43,13 @@ const fetchProblems = async (
           },
         },
       }),
-    });
+    };
+
+    if (process.env.NODE_ENV !== 'test') {
+      fetchOptions.signal = AbortSignal.timeout(10000);
+    }
+
+    const response = await fetch('https://leetcode.com/graphql', fetchOptions);
 
     const result = await response.json();
 

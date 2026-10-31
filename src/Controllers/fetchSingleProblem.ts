@@ -8,7 +8,7 @@ const fetchSingleProblem = async (
   formatData?: (data: DailyProblemData & SelectProblemData) => void,
 ) => {
   try {
-    const response = await fetch('https://leetcode.com/graphql', {
+    const fetchOptions: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -20,12 +20,28 @@ const fetchSingleProblem = async (
           titleSlug, //search question using titleSlug
         },
       }),
-    });
+    };
+
+    if (process.env.NODE_ENV !== 'test') {
+      fetchOptions.signal = AbortSignal.timeout(10000);
+    }
+
+    const response = await fetch('https://leetcode.com/graphql', fetchOptions);
 
     const result = await response.json();
 
     if (result.errors) {
-      return res.send(result);
+      return (res.status ? res.status(400) : res).send(result);
+    }
+
+    if (
+      result.data &&
+      'question' in result.data &&
+      result.data.question === null
+    ) {
+      return (res.status ? res.status(404) : res).json({
+        error: 'Question not found',
+      });
     }
 
     if (formatData == null) {
@@ -35,7 +51,7 @@ const fetchSingleProblem = async (
     return res.json(formatData(result.data));
   } catch (err) {
     console.error('Error: ', err);
-    return res.send(err);
+    return (res.status ? res.status(500) : res).send(err);
   }
 };
 

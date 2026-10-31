@@ -180,10 +180,23 @@ export const problems = (
   >,
   res: Response,
 ) => {
-  const difficulty = req.query.difficulty;
-  const limit = req.query.limit;
-  const skip = req.query.skip;
-  const tags = req.query.tags;
+  const difficulty =
+    typeof req.query.difficulty === 'string' ? req.query.difficulty : undefined;
+  const rawLimit = req.query.limit
+    ? parseInt(req.query.limit as unknown as string, 10)
+    : undefined;
+  const limit =
+    rawLimit !== undefined && !Number.isNaN(rawLimit) && rawLimit > 0
+      ? Math.min(rawLimit, 100)
+      : rawLimit;
+  const rawSkip = req.query.skip
+    ? parseInt(req.query.skip as unknown as string, 10)
+    : undefined;
+  const skip =
+    rawSkip !== undefined && !Number.isNaN(rawSkip) && rawSkip >= 0
+      ? rawSkip
+      : undefined;
+  const tags = typeof req.query.tags === 'string' ? req.query.tags : '';
 
   controllers.fetchProblems(
     { limit, skip, tags, difficulty },
@@ -193,13 +206,14 @@ export const problems = (
   );
 };
 
-export const officialSolution = (req: Request, res: Response) => {
+export const officialSolution = (req: Request, res: Response): void => {
   const { titleSlug } = req.query;
 
   if (!titleSlug) {
-    return res.status(400).json({ error: 'Missing titleSlug query parameter' });
+    res.status(400).json({ error: 'Missing titleSlug query parameter' });
+    return;
   }
-  return controllers.handleRequest(res, gqlQueries.officialSolutionQuery, {
+  controllers.handleRequest(res, gqlQueries.officialSolutionQuery, {
     titleSlug,
   });
 };
@@ -223,12 +237,12 @@ export const trendingCategoryTopics = (_req: Request, res: Response) => {
   }
 };
 
-export const discussTopic = (req: Request, res: Response) => {
+export const discussTopic = (req: Request, res: Response): void => {
   const topicId = parseInt(req.params.topicId, 10);
   controllers.handleRequest(res, gqlQueries.discussTopicQuery, { topicId });
 };
 
-export const discussComments = (req: Request, res: Response) => {
+export const discussComments = (req: Request, res: Response): void => {
   const topicId = parseInt(req.params.topicId, 10);
   const {
     orderBy = 'newest_to_oldest',

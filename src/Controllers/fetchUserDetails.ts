@@ -1,5 +1,14 @@
 import type { Response } from 'express';
 
+const extractErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return typeof err === 'object' && err !== null && 'message' in err
+    ? String((err as { message: unknown }).message)
+    : 'Internal server error';
+};
+
 const fetchUserDetails = async <T, U>(
   options: { username: string; limit: number; year: number },
   res: Response,
@@ -7,7 +16,7 @@ const fetchUserDetails = async <T, U>(
   formatData?: (data: T) => U,
 ) => {
   try {
-    const response = await fetch('https://leetcode.com/graphql', {
+    const fetchOptions: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -21,12 +30,28 @@ const fetchUserDetails = async <T, U>(
           year: options.year,
         },
       }),
-    });
+    };
+
+    if (process.env.NODE_ENV !== 'test') {
+      fetchOptions.signal = AbortSignal.timeout(10000);
+    }
+
+    const response = await fetch('https://leetcode.com/graphql', fetchOptions);
 
     const result = await response.json();
 
     if (result.errors) {
-      return res.send(result);
+      return (res.status ? res.status(400) : res).send(result);
+    }
+
+    if (
+      result.data &&
+      'matchedUser' in result.data &&
+      result.data.matchedUser === null
+    ) {
+      return (res.status ? res.status(404) : res).json({
+        error: 'User not found',
+      });
     }
 
     if (formatData == null) {
@@ -34,9 +59,9 @@ const fetchUserDetails = async <T, U>(
     }
 
     return res.json(formatData(result.data));
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Error: ', err);
-    return res.send(err.message);
+    return (res.status ? res.status(500) : res).send(extractErrorMessage(err));
   }
 };
 
